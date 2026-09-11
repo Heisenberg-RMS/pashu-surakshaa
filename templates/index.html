@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pashu Suraksha | Unified Animal Health Surveillance & Decision Support</title>
+  
+  <!-- Google Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet GIS CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Chart.js for Epidemiological Curves -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- PWA Manifest & App Style -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Header Bar -->
+  <header class="header-bar">
+    <div class="brand-section">
+      <div class="brand-logo">🐄</div>
+      <div class="brand-text">
+        <h1>पशु सुरक्षा (Pashu Suraksha)</h1>
+        <p>Unified Real-Time Animal Health Surveillance & Early Warning Decision Support</p>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div class="sync-badge" id="syncBadge">
+        <span class="dot"></span> Online (Auto-Sync Ready)
+      </div>
+      <span id="pendingQueueCount" style="font-size:0.75rem; color:#fde68a; font-weight:700;"></span>
+
+      <!-- Active User Profile Pill -->
+      <div id="userProfileWidget" class="user-profile-widget" onclick="window.AuthManager.openModal()" title="Click to switch user account or view profile">
+        <span class="user-avatar" id="headerUserAvatar">👨‍⚕️</span>
+        <div class="user-meta">
+          <span class="user-name" id="headerUserName">Dr. Sunil Bishnoi</span>
+          <span class="user-role" id="headerUserRole">District Veterinary Officer (DVO)</span>
+        </div>
+      </div>
+
+      <button class="btn-login-toggle" onclick="window.AuthManager.openModal()">
+        🔑 Login / Switch
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs-bar">
+    <button class="tab-btn active" data-tab="map">
+      🗺️ Outbreak Map & GIS Surveillance
+    </button>
+    <button class="tab-btn" data-tab="vision">
+      📸 AI Vision Lens & Lesion Scan
+    </button>
+    <button class="tab-btn" data-tab="triage">
+      ⚡ Rapid Syndromic Report & AI Triage
+    </button>
+    <button class="tab-btn" data-tab="ehr">
+      📋 Animal EHR & Health Passport
+    </button>
+    <button class="tab-btn" data-tab="labs">
+      🧪 Lab Referrals & Chain of Custody
+    </button>
+    <button class="tab-btn" data-tab="advisories">
+      🔊 Multilingual Voice Advisories & SMS
+    </button>
+    <button class="tab-btn" data-tab="ivr">
+      📞 Simulated IVR Hotline (1962)
+    </button>
+    <button class="tab-btn" data-tab="dashboard">
+      📈 Epidemiological Dashboard
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- TAB 1: OUTBREAK MAP & GIS SURVEILLANCE -->
+    <section id="view-map" class="tab-view active">
+      <div class="grid-map-sidebar">
+        <!-- GIS Map Area -->
+        <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+          <div class="card-header">
+            <h2 class="card-title">
+              <span>📍 Live Geospatial Surveillance & Containment Rings</span>
+            </h2>
+            <div style="font-size:0.8rem; color:#64748b;">
+              Active Layers: Outbreak Clusters • 3km Infected Zones • 10km Surveillance Buffers
+            </div>
+          </div>
+
+          <div id="surveillanceMap"></div>
+
+          <div class="map-legend">
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#e11d48;"></span>
+              <span><b>Critical Outbreak Point</b> (Confirmed/Active)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#ffe4e6; border:1px solid #e11d48;"></span>
+              <span><b>3 km Infected Zone</b> (Strict Animal/Product Movement Ban)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#fef3c7; border:1px dashed #f59e0b;"></span>
+              <span><b>10 km Surveillance Zone</b> (Clinical Ring Search & Emergency Vaccination)</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#059669;"></span>
+              <span>Veterinary Dispensary / Hospital</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot" style="background:#7c3aed;"></span>
+              <span>Regional Disease Diagnostic Laboratory</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weather & Vector Risk Side Panel -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title" style="font-size:0.95rem;">🌤️ Environmental & Vector Risk</h3>
+              <select id="weatherRegionSelect" class="form-control" style="width:auto; padding:0.25rem 0.5rem; font-size:0.78rem;">
+                <!-- Populated via JS -->
+              </select>
+            </div>
+
+            <!-- Microclimate readings -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-bottom:1rem;">
+              <div style="background:#f8fafc; padding:0.5rem; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                <small style="color:#64748b; font-size:0.72rem;">Temperature</small>
+                <div id="envTempDisplay" style="font-size:1.1rem; font-weight:800; color:#0f172a;">--</div>
+              </div>
+              <div style="background:#f8fafc; padding:0.5rem; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                <small style="color:#64748b; font-size:0.72rem;">Relative Humidity</small>
+                <div id="envHumidityDisplay" style="font-size:1.1rem; font-weight:800; color:#0f172a;">--</div>
+              </div>
+              <div style="background:#f8fafc; padding:0.5rem; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                <small style="color:#64748b; font-size:0.72rem;">Precipitation (24h)</small>
+                <div id="envRainDisplay" style="font-size:1.1rem; font-weight:800; color:#0f172a;">--</div>
+              </div>
+              <div style="background:#f8fafc; padding:0.5rem; border-radius:6px; border:1px solid #e2e8f0; text-align:center;">
+                <small style="color:#64748b; font-size:0.72rem;">Wind Speed</small>
+                <div id="envWindDisplay" style="font-size:1.1rem; font-weight:800; color:#0f172a;">--</div>
+              </div>
+            </div>
+
+            <!-- Pathogen Transmission Risk Indices -->
+            <div class="env-metric-item">
+              <div class="env-metric-header">
+                <span>🪰 Vector Suitability (Midges & Ticks)</span>
+                <span style="color:#e11d48;">LSD / Theileriosis</span>
+              </div>
+              <div class="env-metric-bar">
+                <div id="fillVectorRisk" class="env-metric-fill" style="width:75%; background:#e11d48;"></div>
+              </div>
+              <small style="color:#64748b; font-size:0.72rem;">Optimal Culicoides breeding conditions</small>
+            </div>
+
+            <div class="env-metric-item">
+              <div class="env-metric-header">
+                <span>💨 FMD Airborne Dispersion Potential</span>
+                <span style="color:#0f766e;">Aphthovirus</span>
+              </div>
+              <div class="env-metric-bar">
+                <div id="fillFMDRisk" class="env-metric-fill" style="width:65%; background:#0f766e;"></div>
+              </div>
+              <small style="color:#64748b; font-size:0.72rem;">Plume dispersion up to 10-15km downwind</small>
+            </div>
+
+            <div class="env-metric-item">
+              <div class="env-metric-header">
+                <span>🌧️ Waterlogging Stress (HS / Galghontu)</span>
+                <span style="color:#0284c7;">P. multocida</span>
+              </div>
+              <div class="env-metric-bar">
+                <div id="fillHSRisk" class="env-metric-fill" style="width:80%; background:#e11d48;"></div>
+              </div>
+              <small style="color:#64748b; font-size:0.72rem;">High risk in floodplains & buffalo herds</small>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card">
+            <h3 class="card-title" style="font-size:0.95rem; margin-bottom:0.75rem;">⚡ Emergency Directives</h3>
+            <button class="btn btn-danger btn-block btn-sm" style="margin-bottom:0.5rem;" onclick="window.App.switchTab('advisories')">
+              📢 Issue Multilingual Village Alert
+            </button>
+            <button class="btn btn-outline btn-block btn-sm" onclick="window.App.switchTab('labs')">
+              🧪 Check Diagnostic Samples in Transit
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: AI VISION LENS & LESION SCAN -->
+    <section id="view-vision" class="tab-view">
+      <div class="grid-2">
+        <!-- Capture / Upload Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📸 AI Visual Lesion Scanner & Camera Lens</h2>
+            <span style="font-size:0.75rem; background:#ccfbf1; color:#0f766e; padding:2px 8px; border-radius:12px; font-weight:700;">Computer Vision AI</span>
+          </div>
+
+          <!-- Dropzone -->
+          <div class="vision-dropzone" id="visionDropzone" onclick="document.getElementById('visionImageFileInput').click()">
+            <div id="visionDropzoneContent">
+              <div style="font-size:3rem; margin-bottom:0.5rem;">📷</div>
+              <h3 style="color:#0f766e; margin-bottom:0.25rem;">Snap or Upload Lesion Photo</h3>
+              <p style="font-size:0.85rem; color:#64748b; margin-bottom:1rem;">Tap to open camera, browse gallery, or drag-and-drop animal photo</p>
+              
+              <div style="display:flex; justify-content:center; gap:0.5rem; flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="event.stopPropagation(); document.getElementById('visionCameraInput').click()">
+                  📸 Launch Mobile Camera
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation(); document.getElementById('visionImageFileInput').click()">
+                  📁 Browse Device Photos
+                </button>
+              </div>
+            </div>
+
+            <!-- Preview box -->
+            <div class="vision-preview-box" id="visionPreviewContainer">
+              <img id="visionPreviewImage" class="vision-preview-img" src="" alt="Lesion Scan">
+              <div style="margin-top:0.75rem; display:flex; justify-content:center; gap:0.5rem; align-items:center;">
+                <span id="visionFileLabel" style="font-size:0.8rem; font-weight:600; color:#475569;"></span>
+                <button type="button" class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.VisionManager.resetScan()">
+                  🔄 Scan Another Photo
+                </button>
+              </div>
+            </div>
+
+            <input type="file" id="visionImageFileInput" accept="image/*" style="display:none;">
+            <input type="file" id="visionCameraInput" accept="image/*" capture="environment" style="display:none;">
+          </div>
+
+          <!-- Sample Lesion Presets -->
+          <div style="margin-top:1.25rem; border-top:1px solid #e2e8f0; padding-top:1rem;">
+            <label style="font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase;">
+              ⚡ Or Test With Standard Pathology Presets (No Camera Needed):
+            </label>
+            <div class="sample-presets-bar">
+              <button class="sample-preset-btn" data-hint="lsd" data-name="Lumpy Skin Disease" data-icon="⚪">
+                <span>⚪</span> LSD Skin Nodules
+              </button>
+              <button class="sample-preset-btn" data-hint="fmd" data-name="FMD Vesicles" data-icon="👅">
+                <span>👅</span> FMD Oral Blisters
+              </button>
+              <button class="sample-preset-btn" data-hint="mastitis" data-name="Bovine Mastitis" data-icon="🥛">
+                <span>🥛</span> Udder Mastitis
+              </button>
+              <button class="sample-preset-btn" data-hint="tick" data-name="Tick Cluster" data-icon="🪰">
+                <span>🪰</span> Tick Parasites
+              </button>
+              <button class="sample-preset-btn" data-hint="anthrax" data-name="Anthrax Carcass" data-icon="⚠️">
+                <span>⚠️</span> Anthrax Post-Mortem
+              </button>
+              <button class="sample-preset-btn" data-hint="hs" data-name="HS Throat Swelling" data-icon="🧣">
+                <span>🧣</span> HS Neck Edema
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vision AI Diagnostic Output Card -->
+        <div>
+          <div class="card" id="visionResultCard">
+            <div style="text-align:center; padding:3rem 1.5rem; color:#94a3b8;">
+              <div style="font-size:3rem; margin-bottom:0.75rem;">🔬</div>
+              <h3 style="color:#64748b; margin-bottom:0.35rem;">AI Vision Diagnostics Standby</h3>
+              <p style="font-size:0.85rem;">Capture or upload a photo of the affected animal's skin, mouth, hooves, or udder to detect disease lesions, clinical stage, and emergency first-aid.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: RAPID SYNDROMIC REPORT & AI TRIAGE -->
+    <section id="view-triage" class="tab-view">
+      <div class="grid-2">
+        <!-- Form Section -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📝 Field Case & Mortality Reporting</h2>
+            <span style="font-size:0.75rem; background:#dcfce7; color:#16a34a; padding:2px 8px; border-radius:12px; font-weight:700;">Offline-Enabled Form</span>
+          </div>
+
+          <form onsubmit="window.TriageManager.submit(event)">
+            <!-- Reporter details -->
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.5rem; margin-bottom:0.75rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Reporter Type</label>
+                <select id="reporterTypeSelect" class="form-control">
+                  <option value="FARMER">Farmer / Owner</option>
+                  <option value="PARA_VET">Para-Vet / Pashu Sakhi</option>
+                  <option value="VET_OFFICER">Veterinary Officer</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Reporter Name</label>
+                <input type="text" id="reporterNameInput" class="form-control" value="Ramcharan Yadav" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Mobile Number</label>
+                <input type="tel" id="reporterPhoneInput" class="form-control" value="9876543210" required>
+              </div>
+            </div>
+
+            <!-- Species Selector -->
+            <div class="form-group">
+              <label>Select Affected Livestock Species</label>
+              <div class="species-selector-grid">
+                <div class="species-card active" data-species="Cattle">
+                  <span class="species-icon">🐄</span>
+                  <span>Cattle (गाय)</span>
+                </div>
+                <div class="species-card" data-species="Buffalo">
+                  <span class="species-icon">🐃</span>
+                  <span>Buffalo (भैंस)</span>
+                </div>
+                <div class="species-card" data-species="Goat">
+                  <span class="species-icon">🐐</span>
+                  <span>Goat (बकरी)</span>
+                </div>
+                <div class="species-card" data-species="Sheep">
+                  <span class="species-icon">🐑</span>
+                  <span>Sheep (भेड़)</span>
+                </div>
+                <div class="species-card" data-species="Pig">
+                  <span class="species-icon">🐖</span>
+                  <span>Pig (सुअर)</span>
+                </div>
+                <div class="species-card" data-species="Poultry">
+                  <span class="species-icon">🐔</span>
+                  <span>Poultry (मुर्गी)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ear Tag / Animal ID -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Animal Tag / RFID (Optional)</label>
+                <input type="text" id="reportAnimalTagInput" class="form-control" placeholder="e.g. 100982347101">
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Village Name</label>
+                <input type="text" id="reportVillageInput" class="form-control" value="Dhani Mohabbatpur" required>
+              </div>
+            </div>
+
+            <!-- Location Coordinates -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.75rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Block / Tehsil</label>
+                <input type="text" id="reportBlockInput" class="form-control" value="Hansi" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>District</label>
+                <input type="text" id="reportDistrictInput" class="form-control" value="Hisar" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>GPS Coordinates</label>
+                <div style="display:flex; gap:2px;">
+                  <input type="number" step="any" id="reportLatInput" class="form-control" value="29.1023" style="padding:0.4rem;" required>
+                  <input type="number" step="any" id="reportLonInput" class="form-control" value="76.0125" style="padding:0.4rem;" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- Symptoms Checklist -->
+            <div class="form-group">
+              <label>Select Observed Clinical Signs & Lesions</label>
+              <div class="symptoms-grid" id="symptomsContainer">
+                <!-- Populated dynamically via JS -->
+              </div>
+            </div>
+
+            <!-- Counters: Fever, Affected, Mortality -->
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:0.75rem; margin-bottom:1rem; align-items:center;">
+              <div style="display:flex; align-items:center; gap:0.4rem; background:#f8fafc; padding:0.6rem; border-radius:6px; border:1px solid #e2e8f0;">
+                <input type="checkbox" id="hasFeverCheck" style="width:18px; height:18px;">
+                <label for="hasFeverCheck" style="margin:0; font-size:0.82rem; cursor:pointer;">🌡️ High Rectal Fever</label>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Affected Animal Count</label>
+                <input type="number" id="affectedCountInput" class="form-control" min="1" value="1" required>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label style="color:#e11d48;">Mortality / Deaths</label>
+                <input type="number" id="mortalityCountInput" class="form-control" min="0" value="0" required>
+              </div>
+            </div>
+
+            <!-- Clinical Notes -->
+            <div class="form-group">
+              <label>Additional Clinical Notes or History</label>
+              <textarea id="reportNotesInput" class="form-control" rows="2" placeholder="e.g. Saliva frothing heavily; animal stopped milking; herd grazed near canal..."></textarea>
+            </div>
+
+            <button type="submit" id="submitReportBtn" class="btn btn-primary btn-block">
+              Submit Disease Report & Run Triage
+            </button>
+          </form>
+        </div>
+
+        <!-- Live Triage Assessment Card -->
+        <div>
+          <div class="card" style="position:sticky; top:80px;">
+            <div class="card-header">
+              <h2 class="card-title">🤖 Real-Time Syndromic Triage Engine</h2>
+              <span style="font-size:0.75rem; color:#64748b;">Instant Differential Scoring</span>
+            </div>
+
+            <div id="liveTriageCard" class="triage-output-card">
+              <div style="text-align:center; padding:2rem; color:#94a3b8;">
+                <div style="font-size:2.5rem; margin-bottom:0.5rem;">🩺</div>
+                <h4 style="color:#64748b; margin-bottom:0.25rem;">AI Clinical Triage Ready</h4>
+                <p style="font-size:0.82rem;">Select animal species and click symptoms on the left to calculate instant differential diagnosis, biohazard alerts, and containment triggers.</p>
+              </div>
+            </div>
+
+            <!-- Quick Triage Presets -->
+            <div style="margin-top:1.25rem; border-top:1px solid #e2e8f0; padding-top:1rem;">
+              <label style="font-size:0.78rem; font-weight:700; color:#64748b; text-transform:uppercase;">Quick Simulation Shortcuts:</label>
+              <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin-top:0.4rem;">
+                <button class="btn btn-outline btn-sm" onclick="window.TriageManager.loadPreset('FMD')">Simulate FMD Case</button>
+                <button class="btn btn-outline btn-sm" onclick="window.TriageManager.loadPreset('LSD')">Simulate LSD Case</button>
+                <button class="btn btn-outline btn-sm" onclick="window.TriageManager.loadPreset('ANTHRAX')">Simulate Anthrax Biohazard</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: ANIMAL EHR & HEALTH PASSPORT -->
+    <section id="view-ehr" class="tab-view">
+      <div class="grid-2">
+        <!-- Animal Directory List -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">🐄 Registered Herd & Livestock Directory</h2>
+            <input type="text" id="ehrSearchInput" class="form-control" style="width:200px; padding:0.35rem 0.6rem; font-size:0.82rem;" placeholder="Search Tag / Owner...">
+          </div>
+
+          <div style="max-height:560px; overflow-y:auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Tag ID / RFID</th>
+                  <th>Species & Breed</th>
+                  <th>Age/Sex</th>
+                  <th>Owner / Village</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="animalsTableBody">
+                <!-- Loaded via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Animal Health Passport Display -->
+        <div id="animalPassportContainer">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: LAB REFERRALS & CHAIN OF CUSTODY -->
+    <section id="view-labs" class="tab-view">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔬 Diagnostic Requisitions & Cold-Chain Custody</h2>
+          <span style="font-size:0.78rem; color:#64748b;">Tracking from Field Swab to National Reference Lab</span>
+        </div>
+
+        <table class="custom-table" style="margin-bottom:1.5rem;">
+          <thead>
+            <tr>
+              <th>Barcode ID</th>
+              <th>Animal Tag</th>
+              <th>Suspected Disease / Sample</th>
+              <th>Testing Reference Lab</th>
+              <th>Result Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="labTableBody">
+            <!-- Loaded via JS -->
+          </tbody>
+        </table>
+
+        <!-- Active Specimen Chain of Custody Detail -->
+        <div id="labDetailContainer">
+          <!-- Loaded via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: MULTILINGUAL VOICE ADVISORIES & SMS BROADCAST -->
+    <section id="view-advisories" class="tab-view">
+      <div class="grid-2">
+        <!-- Broadcast Configuration -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">📢 Farmer Voice & SMS Emergency Broadcast</h2>
+            <span style="font-size:0.75rem; background:#ccfbf1; color:#0f766e; padding:2px 8px; border-radius:12px; font-weight:700;">7 Regional Languages</span>
+          </div>
+
+          <div class="form-group">
+            <label>Select Advisory Category</label>
+            <select id="advisoryTypeSelect" class="form-control">
+              <option value="FMD_OUTBREAK">Foot-and-Mouth Disease (FMD) Emergency Containment</option>
+              <option value="LSD_OUTBREAK">Lumpy Skin Disease (LSD) Vector Control</option>
+              <option value="ANTHRAX_BIOHAZARD">Anthrax Carcass Warning & Zoonotic Protocol</option>
+              <option value="PRE_MONSOON_VACCINATION">Seasonal Pre-Monsoon HS/BQ Vaccination Drive</option>
+            </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1rem;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Target Language</label>
+              <select id="advisoryLangSelect" class="form-control">
+                <option value="hi" selected>हिन्दी (Hindi)</option>
+                <option value="en">English (Indian)</option>
+                <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Broadcast Radius (Containment Zone)</label>
+              <select id="broadcastRadiusInput" class="form-control">
+                <option value="3">3 km (Infected Zone Ring)</option>
+                <option value="10" selected>10 km (Surveillance Zone Ring)</option>
+                <option value="25">25 km (Block-Wide Broadcast)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Advisory Preview Card -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:1rem; margin-bottom:1rem;">
+            <h4 id="advisoryPreviewTitle" style="color:#0f172a; margin-bottom:0.5rem; font-size:0.95rem;">--</h4>
+            <div style="margin-bottom:0.75rem;">
+              <small style="font-weight:700; color:#64748b; text-transform:uppercase;">SMS / WhatsApp Message Text:</small>
+              <p id="advisoryPreviewText" style="font-size:0.85rem; color:#334155; margin-top:0.25rem; background:#fff; padding:0.5rem; border-radius:4px; border:1px solid #e2e8f0;">--</p>
+            </div>
+            <div>
+              <small style="font-weight:700; color:#64748b; text-transform:uppercase;">Spoken Voice Script (TTS Audio):</small>
+              <p id="advisoryVoiceScript" style="font-size:0.82rem; color:#475569; margin-top:0.25rem; font-style:italic;">--</p>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:0.75rem;">
+            <button id="playAdvisoryAudioBtn" class="btn btn-primary" style="flex:1;">
+              🔊 Play Audio Advisory (आवाज़ सुनें)
+            </button>
+            <button id="broadcastSMSBtn" class="btn btn-danger" style="flex:1;">
+              📢 Broadcast Emergency SMS & Voice Alert
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Broadcasts Ledger -->
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📜 Dispatch Log & Outreach History</h3>
+          </div>
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Advisory Title</th>
+                <th>Target District</th>
+                <th>Radius</th>
+                <th>Reach</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="advisoriesHistoryTableBody">
+              <!-- Loaded via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: SIMULATED IVR HOTLINE -->
+    <section id="view-ivr" class="tab-view">
+      <div class="grid-2" style="align-items:center;">
+        <div>
+          <div class="card">
+            <h2 class="card-title" style="margin-bottom:0.5rem;">📞 Low-Connectivity IVR Voice Hotline (1962)</h2>
+            <p style="color:#64748b; font-size:0.88rem; margin-bottom:1rem;">
+              Designed for livestock farmers with basic 2G feature phones or low literacy. Farmers dial toll-free 1962 and follow spoken instructions using DTMF keypad numbers. The system instantly classifies symptoms, registers the report, and reads out bio-security advisories in local language.
+            </p>
+
+            <div style="background:#f1f5f9; padding:1rem; border-radius:8px; border:1px solid #e2e8f0; font-size:0.84rem; line-height:1.6;">
+              <b>Automated Voice Flow:</b><br>
+              1️⃣ <b>Welcome & Species Selection</b>: Press 1 for Cattle/Buffalo, 2 for Goat/Sheep, 3 for Pig, 4 for Poultry.<br>
+              2️⃣ <b>Syndromic Hallmark</b>: Press 1 if blisters & drooling (FMD); 2 if skin nodules (LSD); 3 if swollen throat (HS); 4 if sudden death (Anthrax).<br>
+              3️⃣ <b>Auto-Triage & Containment</b>: Generates formal report in the central database, alerts the local veterinary hospital, and dictates immediate home-care measures.
+            </div>
+          </div>
+        </div>
+
+        <!-- Telephone Simulator Handset -->
+        <div>
+          <div class="phone-simulator-frame">
+            <div class="phone-screen">
+              <div class="phone-screen-header">
+                <span>📶 2G/GSM NETWORK</span>
+                <span>TOLL-FREE 1962</span>
+              </div>
+              <div class="phone-screen-body" id="phoneScreenBody">
+                <div style="text-align:center; padding:2rem 0; color:#94a3b8;">
+                  Animal Health Helpline 1962<br>
+                  <small>Press "Call Toll-Free 1962" below to connect</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- DTMF Keypad Grid -->
+            <div class="dialpad-grid">
+              <button class="dial-btn" data-num="1"><span class="dial-num">1</span><span class="dial-sub">.,?</span></button>
+              <button class="dial-btn" data-num="2"><span class="dial-num">2</span><span class="dial-sub">ABC</span></button>
+              <button class="dial-btn" data-num="3"><span class="dial-num">3</span><span class="dial-sub">DEF</span></button>
+              <button class="dial-btn" data-num="4"><span class="dial-num">4</span><span class="dial-sub">GHI</span></button>
+              <button class="dial-btn" data-num="5"><span class="dial-num">5</span><span class="dial-sub">JKL</span></button>
+              <button class="dial-btn" data-num="6"><span class="dial-num">6</span><span class="dial-sub">MNO</span></button>
+              <button class="dial-btn" data-num="7"><span class="dial-num">7</span><span class="dial-sub">PQRS</span></button>
+              <button class="dial-btn" data-num="8"><span class="dial-num">8</span><span class="dial-sub">TUV</span></button>
+              <button class="dial-btn" data-num="9"><span class="dial-num">9</span><span class="dial-sub">WXYZ</span></button>
+              <button class="dial-btn" data-num="*"><span class="dial-num">*</span></button>
+              <button class="dial-btn" data-num="0"><span class="dial-num">0</span><span class="dial-sub">+</span></button>
+              <button class="dial-btn" data-num="#"><span class="dial-num">#</span></button>
+            </div>
+
+            <button id="toggleCallBtn" class="btn btn-block" style="background:#059669; color:#fff; border-radius:24px; padding:0.75rem;">
+              📞 Call Toll-Free 1962 (कॉल लगाएं)
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 7: EPIDEMIOLOGICAL DASHBOARD -->
+    <section id="view-dashboard" class="tab-view">
+      <!-- KPI Row -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#ccfbf1; color:#0f766e;">🐄</div>
+          <div>
+            <div class="kpi-val" id="kpiTotalLivestock">--</div>
+            <div class="kpi-label">Registered Livestock</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#ffe4e6; color:#e11d48;">🚨</div>
+          <div>
+            <div class="kpi-val" id="kpiActiveMorbidity" style="color:#e11d48;">--</div>
+            <div class="kpi-label">Active Morbidity Cases</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#fef3c7; color:#d97706;">📍</div>
+          <div>
+            <div class="kpi-val" id="kpiOutbreakClusters" style="color:#d97706;">--</div>
+            <div class="kpi-label">Active Outbreak Clusters</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#e0f2fe; color:#0284c7;">📝</div>
+          <div>
+            <div class="kpi-val" id="kpiTotalReports">--</div>
+            <div class="kpi-label">Total Surveillance Reports</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#ede9fe; color:#7c3aed;">🧪</div>
+          <div>
+            <div class="kpi-val" id="kpiPendingLab">--</div>
+            <div class="kpi-label">Diagnostic Samples in Lab</div>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-box" style="background:#dcfce7; color:#16a34a;">🛡️</div>
+          <div>
+            <div class="kpi-val" id="kpiVaccineCoverage">--</div>
+            <div class="kpi-label">Herd Immunity Coverage</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">📈 Weekly Epidemic Curve (Syndromic Incidence)</h3>
+          </div>
+          <canvas id="epiCurveChart" height="200"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🍩 Reported Disease Spectrum Breakdown</h3>
+          </div>
+          <div style="max-width:320px; margin:0 auto;">
+            <canvas id="diseaseDonutChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Surveillance Ledger -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">📋 Real-Time Surveillance Ledger (Village & Block Reports)</h3>
+        </div>
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Report UID</th>
+              <th>Species</th>
+              <th>Triage Differential</th>
+              <th>Location</th>
+              <th>Urgency</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="recentReportsTableBody">
+            <!-- Loaded via JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  <!-- Login & Identity Modal -->
+  <div id="loginModal" class="modal-backdrop">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🔐</span>
+          <span>Pashu Suraksha Single Sign-On</span>
+        </div>
+        <button class="modal-close-btn" onclick="window.AuthManager.closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Auth Mode Tabs -->
+        <div class="auth-tabs">
+          <button class="auth-tab-btn active" data-auth-tab="demo" onclick="window.AuthManager.switchAuthTab('demo')">
+            ⚡ Quick Demo Roles
+          </button>
+          <button class="auth-tab-btn" data-auth-tab="password" onclick="window.AuthManager.switchAuthTab('password')">
+            🏛️ Staff Credentials
+          </button>
+          <button class="auth-tab-btn" data-auth-tab="otp" onclick="window.AuthManager.switchAuthTab('otp')">
+            📱 Farmer Mobile OTP
+          </button>
+        </div>
+
+        <!-- Tab 1: Quick Demo Roles -->
+        <div id="authPane-demo" class="auth-tab-pane active">
+          <p style="font-size:0.82rem; color:#64748b; margin-bottom:1rem;">
+            Select a verified stakeholder profile to explore role-specific permissions and workflows instantly:
+          </p>
+
+          <div class="persona-cards-grid">
+            <!-- Farmer -->
+            <div class="persona-card">
+              <div>
+                <span class="persona-badge" style="background:#ccfbf1; color:#0f766e;">👨‍🌾 Livestock Owner</span>
+                <div class="persona-name">Ramcharan Yadav</div>
+                <div class="persona-desc">Dairy farmer with 6 cattle/buffaloes. Access digital animal passport, voice alerts & easy report.</div>
+              </div>
+              <button class="btn btn-primary btn-sm btn-block" onclick="window.AuthManager.loginAsRole('FARMER')">
+                Sign In as Farmer
+              </button>
+            </div>
+
+            <!-- Para-Vet -->
+            <div class="persona-card">
+              <div>
+                <span class="persona-badge" style="background:#fef3c7; color:#d97706;">🩺 Para-Vet / Sakhi</span>
+                <div class="persona-name">Ramesh Kumar</div>
+                <div class="persona-desc">Field animal health worker. Access offline sync queue, vaccination logger & syndromic triage.</div>
+              </div>
+              <button class="btn btn-outline btn-sm btn-block" onclick="window.AuthManager.loginAsRole('PARA_VET')">
+                Sign In as Para-Vet
+              </button>
+            </div>
+
+            <!-- DVO -->
+            <div class="persona-card">
+              <div>
+                <span class="persona-badge" style="background:#ffe4e6; color:#e11d48;">🏛️ District Vet Officer</span>
+                <div class="persona-name">Dr. Sunil Bishnoi</div>
+                <div class="persona-desc">Hisar District DVO. GIS containment zones (3km/10km), lab escalation & emergency SMS dispatch.</div>
+              </div>
+              <button class="btn btn-outline btn-sm btn-block" onclick="window.AuthManager.loginAsRole('DVO')">
+                Sign In as DVO
+              </button>
+            </div>
+
+            <!-- State Director -->
+            <div class="persona-card">
+              <div>
+                <span class="persona-badge" style="background:#ede9fe; color:#7c3aed;">📊 State Directorate</span>
+                <div class="persona-name">Dr. A. K. Sharma</div>
+                <div class="persona-desc">Director General Animal Husbandry. Statewide epidemic curves, vaccine stockpile & policy planning.</div>
+              </div>
+              <button class="btn btn-outline btn-sm btn-block" onclick="window.AuthManager.loginAsRole('DIRECTOR')">
+                Sign In as Director
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Password Login -->
+        <div id="authPane-password" class="auth-tab-pane">
+          <form onsubmit="window.AuthManager.submitPasswordLogin(event)">
+            <div class="form-group">
+              <label>Username / Official ID</label>
+              <input type="text" id="loginUsernameInput" class="form-control" placeholder="e.g. dvo_hisar, paravet, or farmer" required>
+            </div>
+            <div class="form-group">
+              <label>Password</label>
+              <input type="password" id="loginPasswordInput" class="form-control" placeholder="Enter password" required>
+              <small style="color:#64748b; font-size:0.75rem;">Demo passwords: <code>dvo123</code>, <code>vet123</code>, <code>farm123</code>, <code>state123</code></small>
+            </div>
+            <div id="loginErrorMsg" style="color:#e11d48; font-size:0.8rem; margin-bottom:0.75rem; display:none;"></div>
+            <button type="submit" id="loginSubmitBtn" class="btn btn-primary btn-block">
+              Authenticate & Sign In
+            </button>
+          </form>
+        </div>
+
+        <!-- Tab 3: Mobile OTP Login -->
+        <div id="authPane-otp" class="auth-tab-pane">
+          <p style="font-size:0.82rem; color:#64748b; margin-bottom:1rem;">
+            Designed for rural livestock owners without passwords. Enter registered 10-digit mobile number:
+          </p>
+          <div class="form-group">
+            <label>Registered Mobile Number</label>
+            <div style="display:flex; gap:0.5rem;">
+              <input type="tel" id="otpPhoneInput" class="form-control" value="9876543210" placeholder="10-digit mobile">
+              <button type="button" class="btn btn-outline" onclick="window.AuthManager.sendOTP()">
+                Send OTP
+              </button>
+            </div>
+          </div>
+          <div id="otpSentAlert" style="display:none; background:#f0fdf4; border:1px solid #86efac; color:#166534; padding:0.6rem; border-radius:6px; font-size:0.8rem; margin-bottom:0.75rem;">
+            📲 <b>Simulated SMS:</b> Your one-time password is <b>1962</b> (Animal Health Helpline Code).
+          </div>
+          <div class="form-group">
+            <label>Enter 4-Digit OTP</label>
+            <input type="text" id="otpValueInput" class="form-control" placeholder="e.g. 1962" maxlength="4">
+          </div>
+          <button type="button" class="btn btn-primary btn-block" onclick="window.AuthManager.verifyOTP()">
+            Verify OTP & Access Portal
+          </button>
+        </div>
+
+      </div>
+    </div>
+  <!-- Floating Action Button for Chatbot -->
+  <div id="chatFloatBtn" class="chat-float-btn" title="Chat with Pashu AI Sahayak (पशु एआई सहायक)">
+    <span class="chat-badge-pulse"></span>
+    💬
+  </div>
+
+  <!-- Slide-Up / Popover Chatbot Drawer -->
+  <div id="chatDrawer" class="chat-drawer">
+    <div class="chat-drawer-header">
+      <div class="chat-title-group">
+        <div style="font-size:1.4rem;">🤖</div>
+        <div>
+          <div class="chat-header-title">Pashu AI Sahayak (पशु एआई सहायक)</div>
+          <div class="chat-header-sub">Veterinary First-Aid & Disease Assistant</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.4rem;">
+        <select id="chatLanguageSelect" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); color:#fff; font-size:0.75rem; border-radius:6px; padding:2px 4px; outline:none;">
+          <option value="hi" style="color:#000;">हिन्दी</option>
+          <option value="en" style="color:#000;">English</option>
+        </select>
+        <button id="chatDrawerCloseBtn" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+      </div>
+    </div>
+
+    <div class="chat-thread" id="chatMessagesThread">
+      <!-- Bubbles populated by chatbot_ui.js -->
+    </div>
+
+    <div class="chat-input-bar">
+      <input type="text" id="chatTextInput" class="form-control" placeholder="Ask about symptoms, first-aid, vaccines..." style="font-size:0.85rem;">
+      <button id="chatSendBtn" class="btn btn-primary btn-sm" style="padding:0 1rem;">
+        ➤
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation Bar (Docked for touch devices) -->
+  <nav class="mobile-bottom-nav">
+    <button class="mobile-nav-item active" data-tab="map" onclick="window.App.switchTab('map')">
+      <span class="mobile-nav-icon">🗺️</span>
+      <span>Map</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="vision" onclick="window.App.switchTab('vision')">
+      <span class="mobile-nav-icon">📸</span>
+      <span>Lens</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="triage" onclick="window.App.switchTab('triage')">
+      <span class="mobile-nav-icon">⚡</span>
+      <span>Report</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="chat" onclick="window.ChatbotManager.openChat()">
+      <span class="mobile-nav-icon">💬</span>
+      <span>AI Chat</span>
+    </button>
+    <button class="mobile-nav-item" data-tab="ehr" onclick="window.App.switchTab('ehr')">
+      <span class="mobile-nav-icon">📋</span>
+      <span>EHR</span>
+    </button>
+  </nav>
+
+  <!-- Application Core Scripts -->
+  <script src="/static/js/offline_sync.js"></script>
+  <script src="/static/js/voice_advisory.js"></script>
+  <script src="/static/js/vision_ui.js"></script>
+  <script src="/static/js/chatbot_ui.js"></script>
+  <script src="/static/js/map_ui.js"></script>
+  <script src="/static/js/triage_ui.js"></script>
+  <script src="/static/js/ehr_ui.js"></script>
+  <script src="/static/js/lab_ui.js"></script>
+  <script src="/static/js/ivr_ui.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
